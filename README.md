@@ -32,3 +32,17 @@ Checked static routes, internal link targets, JSON-LD validity, one H1 per page,
 
 ## Origins integration (October 8, 2026)
 `origins.py` builds the Origins hub, six published episode pages with source transcripts and YouTube embeds, gallery (49 images), resources, series background, and interactive map. Source snapshot is in `content/origins/`. The source KML exposes 46 locations, despite the series describing 65 filming locations. Coordinates and notes are preserved; countries are assigned from the locations. Map library: locally vendored Leaflet 1.9.4 (license included). Basemap: OpenStreetMap with attribution; tiles and source photographs require network access. Search normalizes diacritics, filters by country, and supports location links via URL hashes.
+
+
+## GitHub source repository
+This repository contains the site generators, content snapshot, and required assets. Generated HTML is rebuilt locally:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+python build.py
+python -m http.server 4173 --directory dist
+```
+
+The site remains hosted on Sites. GitHub commits do not automatically deploy it. `.openai/hosting.json` retains the existing Site identity for publishing through Sites.
