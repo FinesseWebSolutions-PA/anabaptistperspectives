@@ -86,3 +86,7 @@ h1{font-size:clamp(44px,5vw,70px)}h2{font-size:40px}
 @media(max-width:1100px){.topic-collections{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}}
 @media(max-width:600px){.topic-collections{grid-template-columns:1fr;gap:22px}.collection-copy{padding:22px}.collection-copy h3{font-size:27px}.collection-copy p{margin-bottom:18px}}
 @media(prefers-reduced-motion:reduce){.collection-card:hover{transform:none}}
+
+/* Origins series label preserves the main navigation baseline. */
+.navlinks>a.nav-origins{position:relative;display:inline-block}.nav-series-label{position:absolute;top:-8px;left:50%;transform:translateX(-50%);white-space:nowrap;color:var(--red);font-size:11px;line-height:1.2;font-weight:700;letter-spacing:.02em}
+@media(max-width:700px){.nav-series-label{position:static;display:block;transform:none;text-align:center;margin-bottom:3px}.navlinks>a.nav-origins{text-align:center}}
