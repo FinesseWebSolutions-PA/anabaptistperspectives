@@ -1,9 +1,10 @@
-import json,re,html,math
+import json,re,html,math,shutil
 from pathlib import Path
 from urllib.parse import urlparse,parse_qs
 from bs4 import BeautifulSoup
 import bleach
 ROOT=Path(__file__).parent; OUT=ROOT/'dist'; DATA=ROOT/'content'; BASE='https://anabaptistperspectives.org'
+shutil.copytree(ROOT/'public/assets',OUT/'assets',dirs_exist_ok=True)
 esc=lambda s:html.escape(str(s),quote=True)
 def text(s):return BeautifulSoup(s or '', 'html.parser').get_text(' ',strip=True)
 def load(n):return json.loads((DATA/n).read_text())
@@ -195,5 +196,9 @@ for old,new in [('/team/','/about/'),('/follw2/','/follow/'),('/about-2/','/abou
 (OUT/'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join('<url><loc>'+esc(BASE+p)+'</loc></url>' for p in paths)+'</urlset>')
 (OUT/'robots.txt').write_text('User-agent: *\nAllow: /\nSitemap: '+BASE+'/sitemap.xml\n')
 (OUT/'404.html').write_text((OUT/'contact/index.html').read_text().replace('We’d like to hear from you.','This page could not be found.').replace('Share a question, suggest a conversation, or get in touch about our work.','Visit the home page or browse our episodes and essays using the navigation.'))
-manifest=json.loads((ROOT/'.openai/hosting.json').read_text());manifest['static']={'directory':'dist'};(ROOT/'.openai/hosting.json').write_text(json.dumps(manifest,indent=2))
+manifest=json.loads((ROOT/'.openai/hosting.json').read_text());manifest.pop('static',None);(ROOT/'.openai/hosting.json').write_text(json.dumps(manifest,indent=2))
 print(json.dumps({'pages':len(paths),'episodes':len(episodes),'essays':len(essays),'topics':len(terms),'premium':sum(r['premium'] for r in records)}))
+
+# Private build-time catalog for the dynamic editorial workspace.
+(ROOT/'worker').mkdir(exist_ok=True)
+(ROOT/'worker/generated-catalog.json').write_text(json.dumps([dict(id='legacy-'+str(r['id']), type=r['kind'].lower(), title=r['title'], slug=r['path'].strip('/').split('/')[-1], path=r['path'], excerpt=r['excerpt'], body=BeautifulSoup(r['body'],'html.parser').get_text('\n',strip=True), legacyHtml=clean(r['body']), image=r['image'], alt=r['title'], author=r['byline'], date=r['date'], youtube=r['youtube'], audio=r['player'], number=r['number'], topics=[terms[t]['title'] for t in r['terms'] if t in terms], terms=r['terms'], premium=r['premium']) for r in records]))

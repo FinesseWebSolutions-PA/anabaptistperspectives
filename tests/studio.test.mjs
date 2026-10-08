@@ -1,0 +1,33 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+const origin='http://localhost:4180';const editorEmail=process.env.TEST_ADMIN_EMAIL||'editor@example.test';const headers={'content-type':'application/json',origin, 'oai-authenticated-user-id':'test-editor','oai-authenticated-user-email':editorEmail};headers.origin=origin;
+async function api(path,body,extra={}){return fetch(origin+path,{method:body?'POST':'GET',headers:{...headers,...extra},body:body?JSON.stringify(body):undefined});}
+test('publishing lifecycle, persistence, authorization, conflict protection, media privacy',async()=>{
+ assert.equal((await fetch(origin+'/api/admin/posts')).status,401);
+ assert.equal((await api('/api/admin/posts',null,{'oai-authenticated-user-email':'stranger@example.com'})).status,401);
+ assert.equal((await api('/api/admin/posts',{title:'Blocked'},{origin:'https://other.example'})).status,403);
+ let p={type:'essay',title:'Studio verification '+Date.now(),excerpt:'A saved test summary.',body:'## A heading\n\nA **meaningful** paragraph. <script>alert(1)</script>',topics:['History'],date:'2026-10-08'};
+ let r=await api('/api/admin/posts',p);assert.equal(r.status,200);p=(await r.json()).post;assert.ok(p.id);assert.equal(p.status,'draft');
+ assert.equal((await fetch(origin+p.path)).status,404);
+ assert.equal((await fetch(origin+'/admin/preview/'+p.id)).status,200);assert.ok(!(await (await fetch(origin+'/admin/preview/'+p.id)).text()).includes(p.title));
+ const loaded=(await (await api('/api/admin/posts')).json()).posts.find(x=>x.id===p.id);assert.equal(loaded.body,p.body);
+ r=await api('/api/admin/posts',{...p,action:'publish'});assert.equal(r.status,200);p=(await r.json()).post;
+ let live=await (await fetch(origin+p.path)).text();assert.ok(live.includes(p.title));assert.ok(live.includes('<strong>meaningful</strong>'));assert.ok(!live.includes('<script>alert(1)</script>'));
+ const version=p.version;r=await api('/api/admin/posts',{...p,body:'A private replacement draft.'});p=(await r.json()).post;assert.ok(p.hasDraft);
+ live=await (await fetch(origin+p.path)).text();assert.ok(!live.includes('A private replacement draft.'));
+ assert.equal((await api('/api/admin/posts',{...p,version})).status,409);
+ assert.ok((await (await fetch(origin+'/essays/')).text()).includes(p.title));
+ const upload=new FormData();upload.append('file',new Blob([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aKXcAAAAASUVORK5CYII=','base64')],{type:'image/png'}),'test.png');
+ r=await fetch(origin+'/api/admin/media',{method:'POST',headers:{origin,'oai-authenticated-user-id':'test-editor','oai-authenticated-user-email':editorEmail},body:upload});assert.equal(r.status,201);const media=await r.json();assert.equal((await fetch(origin+media.url)).status,404);assert.equal((await api(media.url)).status,200);
+ r=await api('/api/admin/posts',{...p,image:media.url,action:'publish'});p=(await r.json()).post;assert.equal((await fetch(origin+media.url)).status,200);
+ r=await api('/api/admin/posts',{...p,action:'unpublish'});p=(await r.json()).post;assert.equal(p.status,'draft');assert.equal((await fetch(origin+p.path)).status,404);assert.equal((await fetch(origin+media.url)).status,404);assert.ok(!(await (await fetch(origin+'/essays/')).text()).includes(p.title));
+ const bad=new FormData();bad.append('file',new Blob(['<svg onload="alert(1)"></svg>'],{type:'image/png'}),'bad.png');assert.equal((await fetch(origin+'/api/admin/media',{method:'POST',headers:{origin,'oai-authenticated-user-id':'test-editor','oai-authenticated-user-email':editorEmail},body:bad})).status,400);
+});
+test('new episodes update the homepage and existing drafts preserve their public revision',async()=>{
+ const existing=(await (await api('/api/admin/posts')).json()).posts.find(p=>p.id.startsWith('legacy-')&&p.type==='essay');const before=await (await fetch(origin+existing.path)).text();
+ let r=await api('/api/admin/posts',{...existing,title:existing.title+' [private edit]',action:'save'});assert.equal(r.status,200);const unchanged=await (await fetch(origin+existing.path)).text();assert.ok(!unchanged.includes('[private edit]'));assert.ok(unchanged.includes(existing.legacyHtml));
+ let p={type:'episode',title:'Studio newest episode '+Date.now(),excerpt:'A test conversation.',body:'Test notes.',youtube:'https://youtu.be/nmbyBDYf_EM',date:'2026-10-09',topics:['History']};r=await api('/api/admin/posts',{...p,action:'publish'});assert.equal(r.status,200);p=(await r.json()).post;
+ const home=await (await fetch(origin+'/')).text();assert.ok(home.includes(p.title));assert.ok(home.includes('data-video="nmbyBDYf_EM"'));
+ assert.ok((await (await fetch(origin+'/sitemap.xml')).text()).includes(p.path));
+ await api('/api/admin/posts',{...p,action:'unpublish'});assert.ok(!(await (await fetch(origin+'/sitemap.xml')).text()).includes(p.path));
+ assert.equal((await fetch(origin+'/origins/locations/')).status,200);
+});

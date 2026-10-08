@@ -1,9 +1,12 @@
 __pycache__/
 *.pyc
 .venv/
-.env
+.env*
+!.env.example
+.dev.vars*
 .DS_Store
-
-# Regenerate HTML with python build.py
-/dist/*
-!/dist/assets/
+node_modules/
+.wrangler/
+.sites-runtime/
+worker/generated-*.json
+/dist/

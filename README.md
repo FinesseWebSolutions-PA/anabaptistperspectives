@@ -33,16 +33,22 @@ Checked static routes, internal link targets, JSON-LD validity, one H1 per page,
 ## Origins integration (October 8, 2026)
 `origins.py` builds the Origins hub, six published episode pages with source transcripts and YouTube embeds, gallery (49 images), resources, series background, and interactive map. Source snapshot is in `content/origins/`. The source KML exposes 46 locations, despite the series describing 65 filming locations. Coordinates and notes are preserved; countries are assigned from the locations. Map library: locally vendored Leaflet 1.9.4 (license included). Basemap: OpenStreetMap with attribution; tiles and source photographs require network access. Search normalizes diacritics, filters by country, and supports location links via URL hashes.
 
+## Perspectives Studio
 
-## GitHub source repository
-This repository contains the site generators, content snapshot, and required assets. Generated HTML is rebuilt locally:
+The protected editorial workspace is at `/admin/`. It uses Sites' ChatGPT sign-in and a server-enforced `ADMIN_EMAILS` allowlist set in hosted environment variables. Missing configuration denies access. Do not expose admin identity in client code or add a production auth bypass. The public site remains anonymous-readable.
 
-```sh
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-python build.py
-python -m http.server 4173 --directory dist
-```
+Editors can manage the 609 imported episodes/essays and create episodes, essays, videos, or PDF resources. Save draft preserves the live revision; Publish applies the new revision immediately. Move back to draft removes public access. Optimistic version checks reject concurrent stale saves. Existing URLs are retained. Original rich article markup remains intact until body text is edited; edited bodies use the supported paragraph/heading/emphasis/list/quote formatting.
 
-The site remains hosted on Sites. GitHub commits do not automatically deploy it. `.openai/hosting.json` retains the existing Site identity for publishing through Sites.
+Uploads (maximum 25 MB) live in R2, with file metadata in D1. Only images, PDFs, supported audio, and MP4 are accepted after signature checks. Unattached/draft uploads require admin identity. Full-length video uses YouTube links. Draft/public records are separate persisted payloads. Public article HTML, metadata, archives, search, homepage, and sitemap are rendered by the Worker; publishing requires no code rebuild.
+
+### Build and local verification
+
+- `python3 -m pip install -r requirements.txt`
+- `npm ci`
+- `npm run build` builds the static content snapshots, bundles them with the runtime, then retains only the Worker deployment output.
+- `npm run db:generate` generates schema-only migrations after schema changes. Never rewrite deployed migrations.
+- `npx wrangler d1 migrations apply ap-studio --local`
+- Set `ADMIN_EMAILS` in ignored `.dev.vars` for local testing, then `npm run dev -- --port 4180`.
+- `TEST_ADMIN_EMAIL=your-editor@example.com npm test` runs real local D1/R2 integration tests against localhost:4180. Test requests simulate dispatch identity headers locally; they never touch production.
+
+The Sites dispatcher owns trusted identity headers in production. `.openai/hosting.json` declares only logical DB/BUCKET bindings; deployment provisions them and applies migrations. Source assets live in `public/assets`. The Python generator remains the source of imported content snapshots. Editorial changes in D1 survive site deployments. Runtime editorial content and uploaded files are not committed to GitHub.
