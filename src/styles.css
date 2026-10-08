@@ -1,0 +1,37 @@
+@import "tailwindcss";
+@import "./legacy-content.css";
+
+@theme {
+  --color-brand: #9b1b25;
+  --color-ink: #292929;
+  --color-muted: #656565;
+  --color-paper: #f6f5f2;
+  --color-line: #deddd8;
+  --font-sans: "DM Sans", sans-serif;
+  --font-display: "Quicksand", sans-serif;
+}
+
+@layer base {
+  body { @apply m-0 bg-paper font-sans text-ink; font-size: 16px; line-height: 1.65; }
+  h1, h2, h3 { @apply font-display font-semibold; letter-spacing: -.035em; line-height: 1.14; }
+  a, button { touch-action: manipulation; }
+  a:hover { @apply text-brand; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; }
+  :focus-visible { outline: 3px solid #b94049; outline-offset: 5px; }
+  img { max-width: 100%; }
+}
+
+/* Restore editorial document rhythm after Tailwind's reset. */
+@layer components {
+  .legacy-content .prose p { margin: 1em 0; }
+  .legacy-content .prose ul { list-style: disc; margin: 1em 0; padding-left: 2em; }
+  .legacy-content .prose ol { list-style: decimal; margin: 1em 0; padding-left: 2em; }
+  .legacy-content .prose li { margin: .35em 0; }
+  .legacy-content .prose strong { font-weight: 700; }
+  .legacy-content .prose hr { margin: 2em 0; border-top: 1px solid var(--color-line); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}

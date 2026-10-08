@@ -1,57 +1,62 @@
-# Anabaptist Perspectives redesign
+# Anabaptist Perspectives — React site and editorial backend
 
-A complete static public-content redesign, based on the public site as retrieved September 29, 2026. Original red/charcoal branding and logos are retained.
+The existing design rebuilt in React 19, Vite, TanStack Start/Router, TypeScript, and Tailwind CSS. No Puck. Published content is rendered from the existing Cloudflare D1 database; uploads remain in the existing R2 bucket. The application is deployed to the existing anabaptistarts.com Site. The original anabaptistperspectives.org WordPress site and its accounts/payments are unchanged.
 
-## Included
+## Editor features
 
-- 507 episode records, including 119 partner teasers; partner playback and sign-in remain on the original service.
-- 102 essays with original text and verified author bylines.
-- 219 topic/series/scripture collections, paginated archives, search and category filtering.
-- Homepage, About/team, follow, giving, contact, phone listening, policies, and public informational pages.
-- Original video and Captivate embeds where supplied by the source; image hosting remains on the original media domain.
-- Page-specific titles/descriptions, canonical URLs, JSON-LD, static crawlable content, and XML sitemap.
+Visit `/admin/` and use your existing administrator sign-in.
 
-## Run locally
+- Create and edit episodes, essays, videos, and PDF resources with the rich-text editor.
+- Upload images, PDFs, audio, or short MP4 files, up to 25 MB. Use YouTube links for longer videos.
+- Save draft without changing the published page; preview privately; publish or unpublish explicitly.
+- Open History to restore an older version as a new draft. Restoring does not publish.
+- Concurrent edits are rejected instead of silently overwriting another editor's work.
 
-Serve `dist` with any static web server, e.g. `python3 -m http.server 4173 --directory dist`.
+Revision history begins with this upgrade. Each existing post's current state is available immediately, and future saves retain the previous state atomically. Imported content also has an original snapshot. Earlier historical edits cannot be reconstructed. The UI shows the most recent 100 saved versions plus the original imported version.
 
-To regenerate: create a Python environment, install `requirements.txt`, then run `python build.py`. Content inputs are saved in `content`; the script uses the homepage template and shared assets in `dist/assets`.
+Public pages, homepage selections, archives, search, and sitemap use published records. Draft-only uploads and media referenced only by partner content require administrator authorization. Public HTML is sanitized. Public metadata excludes drafts, internal state, and direct partner media.
 
-## Launch considerations
+## Local development
 
-This is a private review site, not a replacement of the production domain. Canonicals and sitemap URLs deliberately retain `https://anabaptistperspectives.org` for migration to that domain. Change the `BASE` value in `build.py` if the permanent production domain differs.
+Requires Node 22.13+ (Node 22 LTS recommended; integration tests use node:sqlite).
 
-The archive is a snapshot, not a live WordPress sync. Source WordPress administration, account management, payments, email subscriptions, contact submissions, and gated content remain with their existing services. A production cutover should connect the owner's chosen editorial publishing workflow, migrate or proxy those services, and verify redirects for old utility URLs. Obsolete development/test pages are not recreated.
+1. `npm ci`
+2. `npm run cf-typegen`
+3. Copy the names in `.env.example` into ignored `.dev.vars`, with disposable local values.
+4. `npx wrangler d1 migrations apply DB --config wrangler.preview.jsonc --local`
+5. `npm run dev` for Vite development at http://127.0.0.1:4174.
 
-Search ranking improvements are not guaranteed. Search Console submission, domain-level redirects, analytics configuration, and production performance monitoring should follow the domain cutover.
+For a production-style local preview, run `npm run build` then `npm run preview`. A separate disposable test database can be selected with `--persist-to .wrangler/test-name` on both migration and preview commands.
 
-## Verification
+`npm run check` builds the deployable Worker and checks TypeScript. Builds require npm only; historical Python import scripts are retained for reference, not part of the normal build. The packaging step embeds client assets and removes development variables from the deployment output.
 
-Checked static routes, internal link targets, JSON-LD validity, one H1 per page, JavaScript syntax, archive search and category filters, and mobile navigation. Inspected desktop and 390px mobile layouts. Original external services were linked, not submitted or transacted against.
+## Tests
 
+Set `TEST_ORIGIN` to the local preview URL, `TEST_ADMIN_EMAIL`, `TEST_ADMIN_PASSWORD`, and `TEST_SETUP_TOKEN` to the matching disposable credentials, then run `npm test` against a fresh local database. Tests reject non-local origins and never run against production.
 
-## Origins integration (October 8, 2026)
-`origins.py` builds the Origins hub, six published episode pages with source transcripts and YouTube embeds, gallery (49 images), resources, series background, and interactive map. Source snapshot is in `content/origins/`. The source KML exposes 46 locations, despite the series describing 65 filming locations. Coordinates and notes are preserved; countries are assigned from the locations. Map library: locally vendored Leaflet 1.9.4 (license included). Basemap: OpenStreetMap with attribution; tiles and source photographs require network access. Search normalizes diacritics, filters by country, and supports location links via URL hashes.
+The one-time setup token is random, at least 32 bytes; only its SHA-256 hash goes into `ADMIN_SETUP_TOKEN_HASH`. Set `ADMIN_SETUP_EXPIRES` to a near-future ISO timestamp. Do not commit any raw token, password, recovery code, or local database.
 
-## Perspectives Studio
+Tests cover authentication, recovery, CSRF, rate limits, rich-text validation, draft/publish/unpublish, private media, stale-write conflicts, revision restore, database upgrade history, public field redaction, and unknown-length request size limits.
 
-The protected editorial workspace is at `/admin/`. It uses email/password sign-in through Better Auth 1.7.7, secure HTTP-only sessions in D1, and a server-enforced `ADMIN_EMAILS` allowlist set in hosted environment variables. Missing configuration denies access. Do not expose admin identity in client code or add a production auth bypass. The public site remains anonymous-readable.
+## Production persistence and access
 
-Editors can manage the 609 imported episodes/essays and create episodes, essays, videos, or PDF resources. Save draft preserves the live revision; Publish applies the new revision immediately. Move back to draft removes public access. Optimistic version checks reject concurrent stale saves. Existing URLs are retained. Original rich article markup remains intact until body text is edited; edited bodies use the supported paragraph/heading/emphasis/list/quote formatting.
+`.openai/hosting.json` preserves the existing project identity and logical `DB` / `BUCKET` bindings. Sites applies additive Drizzle migrations. Do not change the project ID, replace the storage bindings, or rewrite already-deployed migrations. No Supabase project is required for this implementation.
 
-Uploads (maximum 25 MB) live in R2, with file metadata in D1. Only images, PDFs, supported audio, and MP4 are accepted after signature checks. Unattached/draft uploads require admin identity. Video posts accept direct MP4 uploads up to 25 MB or YouTube links for full-length videos. The story editor uses a bundled Tiptap visual editor with headings, inline formatting, lists, links, alignment, quotes, undo/redo, and images. Rich documents are stored as validated `bodyDoc` JSON and rendered server-side through a strict node/attribute allowlist; `body` remains derived plain text. Existing Markdown and imported HTML stay unchanged until their body is edited. Draft saving and publishing remain separate explicit actions. Draft/public records are separate persisted payloads. Public article HTML, metadata, archives, search, homepage, and sitemap are rendered by the Worker; publishing requires no code rebuild.
+Better Auth uses HTTP-only sessions, scrypt password hashes, a server-enforced `ADMIN_EMAILS` allowlist, and no public registration. Preserve `BETTER_AUTH_SECRET` and the existing hosted settings across deployments. Recovery codes are shown once, stored hashed, single-use, and rotated on recovery; recovery invalidates old sessions. Administrator access does not rely on client flags or identity headers.
 
-### Build and local verification
+Editorial records and uploads are runtime data: they are not committed to GitHub and survive source deployments. Keep backups of D1 and R2 according to your hosting policy. Before reverting code, leave the additive revision-history table/triggers in place.
 
-- `python3 -m pip install -r requirements.txt`
-- `npm ci`
-- `npm run build` builds the static content snapshots, bundles them with the runtime, then retains only the Worker deployment output.
-- `npm run db:generate` generates schema-only migrations after schema changes. Never rewrite deployed migrations.
-- `npx wrangler d1 migrations apply ap-studio --local`
-- Set the four keys in `.env.example` in ignored `.dev.vars`, using a disposable administrator address and random secrets. `ADMIN_SETUP_TOKEN_HASH` is SHA-256 of a random 32-byte token; only provide the raw token privately in `/admin/setup#token=...`. The link expires at `ADMIN_SETUP_EXPIRES` and can be used once. Public registration is disabled.
-- Start a disposable local database: `npx wrangler d1 migrations apply ap-studio --local --persist-to /tmp/ap-auth-test`, then `npm run dev -- --port 4180 --persist-to /tmp/ap-auth-test`.
-- Set `TEST_ADMIN_EMAIL`, `TEST_ADMIN_PASSWORD`, and `TEST_SETUP_TOKEN` to matching ephemeral test values, then run `npm test` against that fresh local database. Tests create a real account, verify cookies, logout, CSRF, recovery races, rate limiting, and content/media permissions. They reject non-local origins.
+## Source map
 
-First-time setup displays a 256-bit recovery code once, with copy/download controls. The user must save it privately. Forgotten-password recovery uses the email plus that code, atomically changes the password, revokes all sessions, and rotates the code. Recovery codes are stored only as SHA-256 hashes; passwords use Better Auth's scrypt implementation. There is no email delivery dependency. Preserve `BETTER_AUTH_SECRET` across deployments. To invite the initial administrator, store a new setup-token hash and expiry in hosted secrets and privately hand the matching link to the approved owner. Never commit raw setup tokens, production passwords, or recovery codes. Existing accounts cannot be overwritten by a new setup link.
+- `src/`: React public pages, reusable components, Tailwind styles, TanStack routes and published-content loaders.
+- `admin/`: protected editorial workspace and rich-text editor.
+- `worker/`: authentication, publishing/media APIs, sanitization, imported baseline, revision history, and deployment wrapper.
+- `db/schema.ts`, `drizzle/`: database schema and additive migrations.
+- `scripts/`: npm build preparation and Worker packaging.
+- `content/`, `build.py`, `origins.py`: historical import sources retained for reference.
 
-The Sites dispatcher owns trusted identity headers in production. `.openai/hosting.json` declares only logical DB/BUCKET bindings; deployment provisions them and applies migrations. Source assets live in `public/assets`. The Python generator remains the source of imported content snapshots. Editorial changes in D1 survive site deployments. Runtime editorial content and uploaded files are not committed to GitHub.
+Origins includes six episodes, transcripts, 49 gallery images, resources, and an interactive Leaflet/OpenStreetMap map with 46 source locations. Existing imported media remains on its original media host. Static informational copy and Origins content are editable in the React/data files; they are not generic drag-and-drop CMS pages.
+
+## Lovable handoff
+
+See LOVABLE-HANDOFF.md. GitHub synchronization is not the same as a connected Lovable project. This is a full-stack Cloudflare application, not a static Vite-only site. Keep the server routes and D1/R2 bindings intact when changing the design. Partner playback, donations, newsletter signup, and member accounts continue using the original services. Review-site noindex/canonical behavior remains unchanged.

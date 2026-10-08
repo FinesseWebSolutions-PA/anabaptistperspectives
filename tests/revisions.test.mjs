@@ -1,0 +1,31 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { origin, api } from './helpers.mjs';
+
+test('history is private, preserves snapshots, and restores drafts with conflict protection', async () => {
+  let response=await api('/api/admin/posts',{type:'essay',title:'History fixture '+Date.now(),excerpt:'Published summary',body:'First saved body',action:'publish'});
+  assert.equal(response.status,200);let p=(await response.json()).post;
+  const first=p.version, path='/api/admin/posts/'+p.id+'/revisions';
+  assert.equal((await fetch(origin+path)).status,401);
+  assert.equal((await fetch(origin+path+'/'+first)).status,401);
+  response=await api('/api/admin/posts',{...p,body:'Secret unpublished revision',action:'save'});
+  assert.equal(response.status,200);p=(await response.json()).post;
+  const history=(await (await api(path)).json()).revisions;
+  assert.deepEqual(history.map(r=>r.version),[2,1]);
+  const snapshot=(await (await api(path+'/'+first)).json()).post;
+  assert.equal(snapshot.body,'First saved body');
+  const dto=await (await fetch(origin+'/api/public/page?path='+encodeURIComponent(p.path))).json();
+  assert.ok(dto.articleHtml.includes('First saved body'));
+  assert.ok(!JSON.stringify(dto).includes('Secret unpublished revision'));
+  assert.ok(!('body' in dto.records.find(r=>r.id===p.id)));
+  response=await api('/api/admin/posts',{...snapshot,id:p.id,version:p.version,action:'save'});
+  assert.equal(response.status,200);const restored=(await response.json()).post;
+  assert.equal(restored.version,3);assert.equal(restored.body,'First saved body');
+  assert.equal((await api('/api/admin/posts',{...snapshot,id:p.id,version:p.version,action:'save'})).status,409);
+  const live=await (await fetch(origin+'/api/public/page?path='+encodeURIComponent(p.path))).json();
+  assert.equal(live.articleHtml,dto.articleHtml);
+  await api('/api/admin/posts',{...restored,action:'unpublish'});
+  assert.equal((await fetch(origin+p.path)).status,404);
+  const unpublished=await (await fetch(origin+'/api/public/page?path='+encodeURIComponent(p.path))).json();
+  assert.equal(unpublished.articleHtml,'');assert.ok(!unpublished.records.some(r=>r.id===p.id));
+});

@@ -15,6 +15,13 @@
       "when": 1791480205484,
       "tag": "0001_tan_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791493873940,
+      "tag": "0002_smart_vermin",
+      "breakpoints": true
     }
   ]
 }

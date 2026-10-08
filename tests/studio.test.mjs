@@ -25,7 +25,7 @@ test('new episodes update the homepage and existing drafts preserve their public
  const existing=(await (await api('/api/admin/posts')).json()).posts.find(p=>p.id.startsWith('legacy-')&&p.type==='essay');const before=await (await fetch(origin+existing.path)).text();
  let r=await api('/api/admin/posts',{...existing,title:existing.title+' [private edit]',action:'save'});assert.equal(r.status,200);const unchanged=await (await fetch(origin+existing.path)).text();assert.ok(!unchanged.includes('[private edit]'));assert.ok(unchanged.includes(existing.legacyHtml));
  let p={type:'episode',title:'Studio newest episode '+Date.now(),excerpt:'A test conversation.',body:'Test notes.',youtube:'https://youtu.be/nmbyBDYf_EM',date:'2026-10-09',topics:['History']};r=await api('/api/admin/posts',{...p,action:'publish'});assert.equal(r.status,200);p=(await r.json()).post;
- const home=await (await fetch(origin+'/')).text();assert.ok(home.includes(p.title));assert.ok(home.includes('data-video="nmbyBDYf_EM"'));
+ const home=await (await fetch(origin+'/')).text();assert.ok(home.includes(p.title));assert.ok(home.includes('aria-label="Play video: '+p.title+'"'));
  assert.ok((await (await fetch(origin+'/sitemap.xml')).text()).includes(p.path));
  await api('/api/admin/posts',{...p,action:'unpublish'});assert.ok(!(await (await fetch(origin+'/sitemap.xml')).text()).includes(p.path));
  assert.equal((await fetch(origin+'/origins/locations/')).status,200);
@@ -55,13 +55,15 @@ test('rich-text documents persist and publish safely without exposing subsequent
   assert.ok(live.includes('<ol start="3"><li><p>A practical response</p></li></ol>'));
   assert.ok(live.includes('href="https://example.com/story?one=1&amp;two=2"'));
   assert.ok(live.includes('src="https://example.com/cover.jpg" alt="A historic church"'));
-  assert.ok(live.includes('&lt;script&gt;alert(&quot;draft text&quot;)&lt;/script&gt;'));
+  assert.match(live,/&lt;script&gt;alert\((?:&quot;|")draft text(?:&quot;|")\)&lt;\/script&gt;/);
   assert.ok(!live.includes('<script>alert("draft text")</script>'));
   const updatedDoc=structuredClone(savedDoc);
   updatedDoc.content[0].content[0].text='A private rich-text revision';
   r=await api('/api/admin/posts',{...p,bodyDoc:updatedDoc});assert.equal(r.status,200);p=(await r.json()).post;
   assert.ok(p.hasDraft);
-  assert.equal(await (await fetch(origin+p.path)).text(),live,'Saving a formatted draft must leave the entire published page unchanged.');
+  const afterDraft=await (await fetch(origin+p.path)).text();
+  assert.equal(afterDraft.match(/<main\b[\s\S]*?<\/main>/)?.[0],live.match(/<main\b[\s\S]*?<\/main>/)?.[0],'Saving a formatted draft must leave published page content unchanged; hydration timestamps may differ.');
+  assert.ok(!afterDraft.includes('A private rich-text revision'),'Neither HTML nor hydration data may expose drafts.');
   const metadataOnly={...p,title:p.title+' revised'};delete metadataOnly.bodyDoc;delete metadataOnly.body;
   r=await api('/api/admin/posts',metadataOnly);assert.equal(r.status,200);p=(await r.json()).post;
   assert.deepEqual(p.bodyDoc,updatedDoc,'A client changing only metadata must not lose rich formatting.');

@@ -1,6 +1,6 @@
 {
   "name": "ap-studio-local",
-  "main": "dist/server/index.js",
+  "main": "src/server.ts",
   "compatibility_date": "2026-09-01",
   "d1_databases": [
     {
@@ -16,6 +16,7 @@
       "bucket_name": "ap-studio-media"
     }
   ],
+  "observability": { "enabled": true, "traces": { "enabled": true, "head_sampling_rate": 0.01 } },
   "compatibility_flags": [
     "nodejs_compat"
   ]
