@@ -39,7 +39,7 @@ The protected editorial workspace is at `/admin/`. It uses Sites' ChatGPT sign-i
 
 Editors can manage the 609 imported episodes/essays and create episodes, essays, videos, or PDF resources. Save draft preserves the live revision; Publish applies the new revision immediately. Move back to draft removes public access. Optimistic version checks reject concurrent stale saves. Existing URLs are retained. Original rich article markup remains intact until body text is edited; edited bodies use the supported paragraph/heading/emphasis/list/quote formatting.
 
-Uploads (maximum 25 MB) live in R2, with file metadata in D1. Only images, PDFs, supported audio, and MP4 are accepted after signature checks. Unattached/draft uploads require admin identity. Full-length video uses YouTube links. Draft/public records are separate persisted payloads. Public article HTML, metadata, archives, search, homepage, and sitemap are rendered by the Worker; publishing requires no code rebuild.
+Uploads (maximum 25 MB) live in R2, with file metadata in D1. Only images, PDFs, supported audio, and MP4 are accepted after signature checks. Unattached/draft uploads require admin identity. Video posts accept direct MP4 uploads up to 25 MB or YouTube links for full-length videos. Draft/public records are separate persisted payloads. Public article HTML, metadata, archives, search, homepage, and sitemap are rendered by the Worker; publishing requires no code rebuild.
 
 ### Build and local verification
 
