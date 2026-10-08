@@ -1,1 +1,20 @@
-{"name":"anabaptist-perspectives","private":true,"type":"module","scripts":{"build":"python3 build.py && node scripts/build-worker.mjs","dev":"wrangler dev","db:generate":"drizzle-kit generate","test":"node --test tests/*.test.mjs"},"devDependencies":{"drizzle-kit":"^0.31.0","drizzle-orm":"^0.44.0","wrangler":"^4.0.0","esbuild":"^0.25.0"}}
+{
+  "name": "anabaptist-perspectives",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python3 build.py && node scripts/build-worker.mjs",
+    "dev": "wrangler dev",
+    "db:generate": "drizzle-kit generate",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.0",
+    "drizzle-orm": "0.45.4",
+    "esbuild": "^0.25.0",
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "better-auth": "1.7.7"
+  }
+}

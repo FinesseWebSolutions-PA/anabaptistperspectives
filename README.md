@@ -35,7 +35,7 @@ Checked static routes, internal link targets, JSON-LD validity, one H1 per page,
 
 ## Perspectives Studio
 
-The protected editorial workspace is at `/admin/`. It uses Sites' ChatGPT sign-in and a server-enforced `ADMIN_EMAILS` allowlist set in hosted environment variables. Missing configuration denies access. Do not expose admin identity in client code or add a production auth bypass. The public site remains anonymous-readable.
+The protected editorial workspace is at `/admin/`. It uses email/password sign-in through Better Auth 1.7.7, secure HTTP-only sessions in D1, and a server-enforced `ADMIN_EMAILS` allowlist set in hosted environment variables. Missing configuration denies access. Do not expose admin identity in client code or add a production auth bypass. The public site remains anonymous-readable.
 
 Editors can manage the 609 imported episodes/essays and create episodes, essays, videos, or PDF resources. Save draft preserves the live revision; Publish applies the new revision immediately. Move back to draft removes public access. Optimistic version checks reject concurrent stale saves. Existing URLs are retained. Original rich article markup remains intact until body text is edited; edited bodies use the supported paragraph/heading/emphasis/list/quote formatting.
 
@@ -48,7 +48,10 @@ Uploads (maximum 25 MB) live in R2, with file metadata in D1. Only images, PDFs,
 - `npm run build` builds the static content snapshots, bundles them with the runtime, then retains only the Worker deployment output.
 - `npm run db:generate` generates schema-only migrations after schema changes. Never rewrite deployed migrations.
 - `npx wrangler d1 migrations apply ap-studio --local`
-- Set `ADMIN_EMAILS` in ignored `.dev.vars` for local testing, then `npm run dev -- --port 4180`.
-- `TEST_ADMIN_EMAIL=your-editor@example.com npm test` runs real local D1/R2 integration tests against localhost:4180. Test requests simulate dispatch identity headers locally; they never touch production.
+- Set the four keys in `.env.example` in ignored `.dev.vars`, using a disposable administrator address and random secrets. `ADMIN_SETUP_TOKEN_HASH` is SHA-256 of a random 32-byte token; only provide the raw token privately in `/admin/setup#token=...`. The link expires at `ADMIN_SETUP_EXPIRES` and can be used once. Public registration is disabled.
+- Start a disposable local database: `npx wrangler d1 migrations apply ap-studio --local --persist-to /tmp/ap-auth-test`, then `npm run dev -- --port 4180 --persist-to /tmp/ap-auth-test`.
+- Set `TEST_ADMIN_EMAIL`, `TEST_ADMIN_PASSWORD`, and `TEST_SETUP_TOKEN` to matching ephemeral test values, then run `npm test` against that fresh local database. Tests create a real account, verify cookies, logout, CSRF, recovery races, rate limiting, and content/media permissions. They reject non-local origins.
+
+First-time setup displays a 256-bit recovery code once, with copy/download controls. The user must save it privately. Forgotten-password recovery uses the email plus that code, atomically changes the password, revokes all sessions, and rotates the code. Recovery codes are stored only as SHA-256 hashes; passwords use Better Auth's scrypt implementation. There is no email delivery dependency. Preserve `BETTER_AUTH_SECRET` across deployments. To invite the initial administrator, store a new setup-token hash and expiry in hosted secrets and privately hand the matching link to the approved owner. Never commit raw setup tokens, production passwords, or recovery codes. Existing accounts cannot be overwritten by a new setup link.
 
 The Sites dispatcher owns trusted identity headers in production. `.openai/hosting.json` declares only logical DB/BUCKET bindings; deployment provisions them and applies migrations. Source assets live in `public/assets`. The Python generator remains the source of imported content snapshots. Editorial changes in D1 survive site deployments. Runtime editorial content and uploaded files are not committed to GitHub.
